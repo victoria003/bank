@@ -1,0 +1,6 @@
+{
+  "name": "Enterprise Banking Analytics",
+  "description": "Dual-portal Enterprise Banking Analytics Platform featuring deep Snowflake integrations, real-time banking intelligence, and SQL execution engines.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
