@@ -1,4 +1,4 @@
-import { buildJsonResponse, verifyToken } from '../../../_auth';
+import { buildJsonResponse, verifyToken } from '../../_auth';
 
 export async function onRequestPost(context: any) {
   const authHeader = context.request.headers.get('Authorization');

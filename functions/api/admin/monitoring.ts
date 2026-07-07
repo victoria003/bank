@@ -1,5 +1,5 @@
-import { buildJsonResponse, verifyToken } from '../../_auth';
-import { monitoring } from '../../_mockData';
+import { buildJsonResponse, verifyToken } from '../_auth';
+import { monitoring } from '../_mockData';
 
 export async function onRequestGet(context: any) {
   const authHeader = context.request.headers.get('Authorization');

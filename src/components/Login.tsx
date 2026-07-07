@@ -35,12 +35,20 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         body: JSON.stringify({ username, password })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Authentication failed. Please verify credentials.');
+        // Try to retrieve any error payload or text; avoid calling json() on empty bodies.
+        const text = await response.text();
+        let errMsg = text || `Server returned ${response.status}`;
+        try {
+          const parsed = text ? JSON.parse(text) : null;
+          if (parsed && (parsed.error || parsed.message)) errMsg = parsed.error || parsed.message;
+        } catch (e) {
+          // ignore JSON parse errors and keep text as message
+        }
+        throw new Error(errMsg || 'Authentication failed. Please verify credentials.');
       }
 
+      const data = await response.json();
       onLoginSuccess(data.token, data.user);
     } catch (err: any) {
       setError(err.message || 'Server connection failed.');

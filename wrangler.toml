@@ -2,6 +2,7 @@ name = "bank"
 
 # Cloudflare Pages site deployment settings
 compatibility_date = "2026-07-07"
+pages_build_output_dir = "dist"
 
 [build]
 command = "npm run build"

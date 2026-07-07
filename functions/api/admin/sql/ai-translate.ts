@@ -1,5 +1,5 @@
-import { buildJsonResponse, verifyToken } from '../../../_auth';
-import { defaultAiSql } from '../../../_mockData';
+import { buildJsonResponse, verifyToken } from '../../_auth';
+import { defaultAiSql } from '../../_mockData';
 
 export async function onRequestPost(context: any) {
   const authHeader = context.request.headers.get('Authorization');
