@@ -21,32 +21,40 @@ export default function App() {
       });
       if (response.ok) {
         const data = await response.json();
-        setUser(data.user);
-        
-        // Default routing based on roles
-        if (data.user.role === 'BUSINESS_USER') {
-          setActivePortal('business');
-        } else if (data.user.role === 'DATA_ENGINEER') {
-          setActivePortal('admin');
-        } else {
-          setActivePortal('business');
+        if (data.success && data.user) {
+          setUser(data.user);
+
+          if (data.user.role === 'BUSINESS_USER') {
+            setActivePortal('business');
+          } else if (data.user.role === 'DATA_ENGINEER') {
+            setActivePortal('admin');
+          } else {
+            setActivePortal('business');
+          }
+          return;
         }
-      } else {
-        // Clear stale session
-        localStorage.removeItem('banking_session_token');
-        setToken(null);
-        setUser(null);
       }
+
+      localStorage.removeItem('banking_session_token');
+      setToken(null);
+      setUser(null);
     } catch (err) {
       console.error('Session restoration failed:', err);
+      localStorage.removeItem('banking_session_token');
+      setToken(null);
+      setUser(null);
     } finally {
       setIsInitializing(false);
     }
   };
 
   useEffect(() => {
-  setIsInitializing(false);
-}, []);
+    if (token) {
+      validateSession(token);
+    } else {
+      setIsInitializing(false);
+    }
+  }, [token]);
 
   const handleLoginSuccess = (newToken: string, loggedInUser: User) => {
     localStorage.setItem('banking_session_token', newToken);

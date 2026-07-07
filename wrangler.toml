@@ -1,0 +1,18 @@
+name = "bank"
+
+# Cloudflare Pages site deployment settings
+compatibility_date = "2026-07-07"
+
+[build]
+command = "npm run build"
+upload.format = "service-worker"
+
+[site]
+bucket = "dist"
+
+[functions]
+# Pages Functions path
+directory = "functions"
+
+[env.production]
+# Add any production-specific variables here
