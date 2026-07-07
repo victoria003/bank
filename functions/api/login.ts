@@ -1,13 +1,25 @@
-export async function onRequest() {
-  return new Response(
-    JSON.stringify({
+export async function onRequestPost(context: any) {
+  const body = await context.request.json();
+
+  const { username, password } = body;
+
+  if (username === "admin" && password === "admin123") {
+    return Response.json({
       success: true,
-      message: "Cloudflare Function is working!"
-    }),
-    {
-      headers: {
-        "Content-Type": "application/json"
+      user: {
+        username: "admin",
+        role: "ADMIN"
       }
+    });
+  }
+
+  return Response.json(
+    {
+      success: false,
+      message: "Invalid credentials"
+    },
+    {
+      status: 401
     }
   );
 }
