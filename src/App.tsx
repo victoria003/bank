@@ -45,12 +45,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (token) {
-      validateSession(token);
-    } else {
-      setIsInitializing(false);
-    }
-  }, [token]);
+  setIsInitializing(false);
+}, []);
 
   const handleLoginSuccess = (newToken: string, loggedInUser: User) => {
     localStorage.setItem('banking_session_token', newToken);

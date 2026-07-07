@@ -244,7 +244,7 @@ function requireRole(allowedRoles: UserRole[]) {
 // ----------------------------------------------------------------------------
 
 // 1. AUTHENTICATION API
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   
   if (!username || !password) {
