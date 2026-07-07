@@ -6,8 +6,10 @@ export async function onRequestPost(context: any) {
   if (username === "admin" && password === "admin123") {
     return Response.json({
       success: true,
+      token: "dummy-token",
       user: {
-        username: "admin",
+        name: "Administrator",
+        email: "admin@example.com",
         role: "ADMIN"
       }
     });
@@ -16,7 +18,7 @@ export async function onRequestPost(context: any) {
   return Response.json(
     {
       success: false,
-      message: "Invalid credentials"
+      error: "Invalid credentials"
     },
     {
       status: 401
