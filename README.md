@@ -21,7 +21,7 @@ npm install
 Use one of the following commands depending on your workflow:
 
 - `npm run dev` — starts the Cloudflare Pages-compatible Vite frontend for local development.
-- `npm run dev:local` — starts the local Express-style server in `server.local.ts` for testing backend-only behavior locally.
+Note: The project now runs as a Cloudflare Pages app using Functions for the API. Local Express servers were removed; run the frontend locally with `npm run dev` and deploy the `dist` via Cloudflare Pages.
 
 ### 2. Database Schema Setup
 Connect to your Snowflake web interface and copy the contents of `/snowflake_setup.sql`. Execute the entire script inside your worksheet console. This boots:

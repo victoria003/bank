@@ -130,6 +130,11 @@ export const monitoring = {
   activeStreams: 1
 };
 
+export const records = [
+  { id: 'rec-1', name: 'Demo One', email: 'one@example.com', details: 'Sample record', created_at: '2026-07-01T12:00:00Z' },
+  { id: 'rec-2', name: 'Demo Two', email: 'two@example.com', details: 'Sample record two', created_at: '2026-07-02T12:00:00Z' }
+];
+
 export const queryHistory = [
   {
     id: 'LOG-9921',
