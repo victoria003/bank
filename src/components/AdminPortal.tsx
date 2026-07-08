@@ -41,7 +41,7 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
     'SELECT SUM(amount), transaction_type FROM TRANSACTIONS GROUP BY 2;',
     'SELECT * FROM FRAUD_ALERTS WHERE risk_score > 80;'
   ]);
-  const [queryColumns, setQueryColumns] = useState<string[]>([]);
+  const [queryColumns, setQueryColumns] = useState<any[]>([]);
   const [queryRows, setQueryRows] = useState<any[]>([]);
   const [queryTimeMs, setQueryTimeMs] = useState<number | null>(null);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -169,7 +169,19 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
         throw new Error(data.error || 'Syntax execution exception.');
       }
 
-      setQueryColumns(data.columns || []);
+      const normalizeColumnName = (name: string) => {
+        return name
+          .toLowerCase()
+          .replace(/[_\s]+([a-z])/g, (_, letter) => letter.toUpperCase());
+      };
+      const mappedCols = (data.columns || []).map((col: any) => {
+        const originalName = typeof col === 'string' ? col : (col.name || '');
+        return {
+          name: originalName,
+          key: normalizeColumnName(originalName)
+        };
+      });
+      setQueryColumns(mappedCols);
       setQueryRows(data.rows || []);
       setQueryTimeMs(data.durationMs);
       setSuccessMsg(`Compiled: Query executed successfully by virtual Snowflake execution engine.`);
@@ -431,19 +443,28 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
                     <table className="w-full text-left text-xs font-mono">
                       <thead className="bg-slate-900/90 text-slate-400 uppercase border-b border-slate-800 sticky top-0">
                         <tr>
-                          {queryColumns.map(col => (
-                            <th key={col} className="p-3 whitespace-nowrap">{col}</th>
-                          ))}
+                          {queryColumns.map(col => {
+                            const colKey = col && typeof col === 'object' ? (col.key || col.name) : col;
+                            const colName = col && typeof col === 'object' ? col.name : col;
+                            return (
+                              <th key={colKey} className="p-3 whitespace-nowrap">{colName}</th>
+                            );
+                          })}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/40">
                         {queryRows.map((row, i) => (
                           <tr key={i} className="hover:bg-slate-900/30">
-                            {queryColumns.map(col => (
-                              <td key={col} className="p-3 text-slate-300 whitespace-nowrap">
-                                {row[col] !== null && row[col] !== undefined ? String(row[col]) : 'NULL'}
-                              </td>
-                            ))}
+                            {queryColumns.map(col => {
+                              const colKey = col && typeof col === 'object' ? (col.key || col.name) : col;
+                              const colName = col && typeof col === 'object' ? col.name : col;
+                              const val = row[colKey] !== undefined ? row[colKey] : (row[colName] !== undefined ? row[colName] : row[colName?.toLowerCase()]);
+                              return (
+                                <td key={colKey} className="p-3 text-slate-300 whitespace-nowrap">
+                                  {val !== null && val !== undefined ? (typeof val === 'object' ? JSON.stringify(val) : String(val)) : 'NULL'}
+                                </td>
+                              );
+                            })}
                           </tr>
                         ))}
                       </tbody>
