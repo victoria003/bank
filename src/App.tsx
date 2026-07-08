@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiPath from './api';
 import { Landmark, Shield, User as UserIcon, LogOut, RefreshCw, Layers, ShieldAlert, Terminal } from 'lucide-react';
 import { User } from './types';
 import Login from './components/Login';
@@ -14,7 +15,7 @@ export default function App() {
   // Validate session on load
   const validateSession = async (sessionToken: string) => {
     try {
-      const response = await fetch('/api/auth/me', {
+      const response = await fetch(apiPath('/api/auth/me'), {
         headers: {
           'Authorization': `Bearer ${sessionToken}`
         }

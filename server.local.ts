@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
 import path from 'path';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -54,6 +55,7 @@ const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'enterprise_banking_snowflake_secret_2026';
 
 app.use(express.json());
+app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 
 // In-memory query logs, staged uploads, and virtual clones for the session
 const queryLogs: SQLQueryLog[] = [
@@ -820,6 +822,66 @@ app.get('/api/metadata/columns', authenticateToken, async (req, res) => {
     ]);
   }
 });
+
+// ----------------------------------------------------------------------------
+// Simple CRUD API for `APP_RECORDS` table (local server)
+// ----------------------------------------------------------------------------
+
+const RECORDS_TABLE = 'APP_RECORDS';
+let recordsInMemory: any[] = [];
+
+async function ensureRecordsTableExistsLocal() {
+  if (!hasSnowflakeCredentials()) return false;
+  try {
+    const createSql = `CREATE TABLE IF NOT EXISTS ${RECORDS_TABLE} (
+      id VARCHAR(64) PRIMARY KEY,
+      name VARCHAR(255),
+      email VARCHAR(255),
+      details VARCHAR(1000),
+      created_at TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP
+    )`;
+    await runQuery(createSql);
+    return true;
+  } catch (err) {
+    console.error('Failed to ensure records table exists:', err);
+    return false;
+  }
+}
+
+app.get('/api/records', authenticateToken, async (req, res) => {
+  if (!hasSnowflakeCredentials()) return res.json(recordsInMemory);
+  try {
+    await ensureRecordsTableExistsLocal();
+    const rows = await runQuery(`SELECT id, name, email, details, TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at FROM ${RECORDS_TABLE} ORDER BY created_at DESC`);
+    res.json(rows.map((r: any) => ({ id: r.ID || r.id, name: r.NAME || r.name, email: r.EMAIL || r.email, details: r.DETAILS || r.details, created_at: r.CREATED_AT || r.created_at })));
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch records' }); }
+});
+
+app.get('/api/records/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params; if (!id) return res.status(400).json({ error: 'Record id required' });
+  if (!hasSnowflakeCredentials()) { const found = recordsInMemory.find(r => r.id === id); if (!found) return res.status(404).json({ error: 'Not found' }); return res.json(found); }
+  try { await ensureRecordsTableExistsLocal(); const rows = await runQuery(`SELECT id, name, email, details, TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at FROM ${RECORDS_TABLE} WHERE id = ?`, [id]); const r = rows[0]; if (!r) return res.status(404).json({ error: 'Not found' }); res.json({ id: r.ID || r.id, name: r.NAME || r.name, email: r.EMAIL || r.email, details: r.DETAILS || r.details, created_at: r.CREATED_AT || r.created_at }); } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch record' }); }
+});
+
+app.post('/api/records', authenticateToken, async (req, res) => {
+  const { name, email, details } = req.body; if (!name || !email) return res.status(400).json({ error: 'Name and email are required' });
+  const id = `rec-${Date.now().toString(36)}-${Math.floor(Math.random()*9000+1000)}`;
+  if (!hasSnowflakeCredentials()) { const newRec = { id, name, email, details: details || '', created_at: new Date().toISOString() }; recordsInMemory.unshift(newRec); return res.status(201).json(newRec); }
+  try { await ensureRecordsTableExistsLocal(); await runQuery(`INSERT INTO ${RECORDS_TABLE} (id, name, email, details) VALUES (?, ?, ?, ?)`, [id, name, email, details || '']); const rows = await runQuery(`SELECT id, name, email, details, TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at FROM ${RECORDS_TABLE} WHERE id = ?`, [id]); res.status(201).json(rows[0]); } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to create record' }); }
+});
+
+app.put('/api/records/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params; const { name, email, details } = req.body; if (!id) return res.status(400).json({ error: 'Record id required' }); if (!name || !email) return res.status(400).json({ error: 'Name and email are required' });
+  if (!hasSnowflakeCredentials()) { const idx = recordsInMemory.findIndex(r => r.id === id); if (idx === -1) return res.status(404).json({ error: 'Not found' }); recordsInMemory[idx] = { ...recordsInMemory[idx], name, email, details: details || recordsInMemory[idx].details }; return res.json(recordsInMemory[idx]); }
+  try { await ensureRecordsTableExistsLocal(); await runQuery(`UPDATE ${RECORDS_TABLE} SET name = ?, email = ?, details = ? WHERE id = ?`, [name, email, details || '', id]); const rows = await runQuery(`SELECT id, name, email, details, TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at FROM ${RECORDS_TABLE} WHERE id = ?`, [id]); res.json(rows[0]); } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update record' }); }
+});
+
+app.delete('/api/records/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params; if (!id) return res.status(400).json({ error: 'Record id required' });
+  if (!hasSnowflakeCredentials()) { recordsInMemory = recordsInMemory.filter(r => r.id !== id); return res.json({ success: true }); }
+  try { await ensureRecordsTableExistsLocal(); await runQuery(`DELETE FROM ${RECORDS_TABLE} WHERE id = ?`, [id]); res.json({ success: true }); } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to delete record' }); }
+});
+
 
 // AI SQL Assistant Helper Endpoint using Gemini
 app.post('/api/admin/sql/ai-translate', authenticateToken, async (req, res) => {

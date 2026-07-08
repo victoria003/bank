@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiPath from '../api';
 import {
   Database, Play, Save, Download, Terminal, Upload, Trash2, History,
   ShieldCheck, ShieldAlert, Cpu, Sparkles, RefreshCw, Layers, ShieldCheck as SecurityIcon,
@@ -86,10 +87,10 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       const [resMon, resHist, resRoles, resGrants] = await Promise.all([
-        fetch('/api/admin/monitoring', { headers }),
-        fetch('/api/admin/query-history', { headers }),
-        fetch('/api/admin/security/roles', { headers }),
-        fetch('/api/admin/security/grants', { headers })
+        fetch(apiPath('/api/admin/monitoring'), { headers }),
+        fetch(apiPath('/api/admin/query-history'), { headers }),
+        fetch(apiPath('/api/admin/security/roles'), { headers }),
+        fetch(apiPath('/api/admin/security/grants'), { headers })
       ]);
 
       const dataMon = await resMon.json();
@@ -124,7 +125,7 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
     setSuccessMsg('');
 
     try {
-      const res = await fetch('/api/admin/upload', {
+      const res = await fetch(apiPath('/api/admin/upload'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -154,7 +155,7 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/admin/sql/run', {
+      const res = await fetch(apiPath('/api/admin/sql/run'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -188,7 +189,7 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
     setAiGenerating(true);
     setError('');
     try {
-      const res = await fetch('/api/admin/sql/ai-translate', {
+      const res = await fetch(apiPath('/api/admin/sql/ai-translate'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -213,7 +214,7 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
     setError('');
     setSuccessMsg('');
     try {
-      const res = await fetch('/api/admin/time-travel', {
+      const res = await fetch(apiPath('/api/admin/time-travel'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -236,7 +237,7 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
     setError('');
     setSuccessMsg('');
     try {
-      const res = await fetch('/api/admin/clone', {
+      const res = await fetch(apiPath('/api/admin/clone'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

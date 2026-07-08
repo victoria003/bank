@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { User, ExecutiveMetrics, CustomerProfile, TransactionRecord, LoanRecord, BranchRecord, FraudAlert } from '../types';
+import RecordsManager from './RecordsManager';
 
 interface BusinessPortalProps {
   user: User;
@@ -13,7 +14,7 @@ interface BusinessPortalProps {
 }
 
 export default function BusinessPortal({ user, token }: BusinessPortalProps) {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'customers' | 'transactions' | 'loans' | 'branches' | 'fraud'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'customers' | 'transactions' | 'loans' | 'branches' | 'fraud' | 'records'>('dashboard');
   const [metrics, setMetrics] = useState<ExecutiveMetrics | null>(null);
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
@@ -39,13 +40,14 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       
+      import('../api').then(({ default: apiPath }) => {});
       const [resMetrics, resCust, resTx, resLoans, resBranches, resFraud] = await Promise.all([
-        fetch('/api/business/dashboard', { headers }),
-        fetch(`/api/business/customers?search=${custSearch}&segment=${custSegment}`, { headers }),
-        fetch(`/api/business/transactions?type=${txType}&risk=${txRisk}`, { headers }),
-        fetch(`/api/business/loans?category=${loanCategory}&rating=${loanRating}`, { headers }),
-        fetch('/api/business/branches', { headers }),
-        fetch('/api/business/fraud-alerts', { headers })
+        fetch((await import('../api')).default('/api/business/dashboard'), { headers }),
+        fetch((await import('../api')).default(`/api/business/customers?search=${custSearch}&segment=${custSegment}`), { headers }),
+        fetch((await import('../api')).default(`/api/business/transactions?type=${txType}&risk=${txRisk}`), { headers }),
+        fetch((await import('../api')).default(`/api/business/loans?category=${loanCategory}&rating=${loanRating}`), { headers }),
+        fetch((await import('../api')).default('/api/business/branches'), { headers }),
+        fetch((await import('../api')).default('/api/business/fraud-alerts'), { headers })
       ]);
 
       const [dataMetrics, dataCust, dataTx, dataLoans, dataBranches, dataFraud] = await Promise.all([
@@ -109,7 +111,7 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
 
       {/* Tabs Menu */}
       <div className="bg-slate-950/40 border-b border-slate-800/80 px-6 py-1 flex overflow-x-auto gap-2">
-        {(['dashboard', 'customers', 'transactions', 'loans', 'branches', 'fraud'] as const).map((tab) => {
+        {(['dashboard', 'customers', 'transactions', 'loans', 'branches', 'fraud', 'records'] as const).map((tab) => {
           const isActive = activeTab === tab;
           const label = tab.charAt(0).toUpperCase() + tab.slice(1);
           return (
@@ -122,7 +124,7 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
                   : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-800'
               }`}
             >
-              {tab === 'fraud' ? '🚨 Fraud Hub' : label + ' Analytics'}
+              {tab === 'fraud' ? '🚨 Fraud Hub' : tab === 'records' ? 'Records' : label + ' Analytics'}
             </button>
           );
         })}
@@ -135,6 +137,13 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
           <div className="p-4 bg-rose-950/30 border border-rose-800/60 rounded-xl text-xs text-rose-300 flex items-center gap-3">
             <ShieldAlert className="h-5 w-5 text-rose-400 shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {/* 6. RECORDS MANAGER SUB-VIEW */}
+        {activeTab === 'records' && (
+          <div className="space-y-6 animate-fade-in">
+            <RecordsManager token={token} />
           </div>
         )}
 
