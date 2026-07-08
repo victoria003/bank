@@ -12,6 +12,12 @@ interface AdminPortalProps {
   token: string;
 }
 
+const normalizeColumnName = (name: string) => {
+  return name
+    .toLowerCase()
+    .replace(/[_\s]+([a-z])/g, (_, letter) => letter.toUpperCase());
+};
+
 export default function AdminPortal({ user, token }: AdminPortalProps) {
   const [activeTab, setActiveTab] = useState<'upload' | 'sql' | 'engineering' | 'security' | 'recovery' | 'monitoring' | 'ai'>('sql');
   const [monitoring, setMonitoring] = useState<any>(null);
@@ -169,19 +175,7 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
         throw new Error(data.error || 'Syntax execution exception.');
       }
 
-      const normalizeColumnName = (name: string) => {
-        return name
-          .toLowerCase()
-          .replace(/[_\s]+([a-z])/g, (_, letter) => letter.toUpperCase());
-      };
-      const mappedCols = (data.columns || []).map((col: any) => {
-        const originalName = typeof col === 'string' ? col : (col.name || '');
-        return {
-          name: originalName,
-          key: normalizeColumnName(originalName)
-        };
-      });
-      setQueryColumns(mappedCols);
+      setQueryColumns(data.columns || []);
       setQueryRows(data.rows || []);
       setQueryTimeMs(data.durationMs);
       setSuccessMsg(`Compiled: Query executed successfully by virtual Snowflake execution engine.`);
@@ -443,11 +437,10 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
                     <table className="w-full text-left text-xs font-mono">
                       <thead className="bg-slate-900/90 text-slate-400 uppercase border-b border-slate-800 sticky top-0">
                         <tr>
-                          {queryColumns.map(col => {
-                            const colKey = col && typeof col === 'object' ? (col.key || col.name) : col;
-                            const colName = col && typeof col === 'object' ? col.name : col;
+                          {queryColumns.map((col, idx) => {
+                            const name = col && typeof col === 'object' ? (col.name || '') : String(col);
                             return (
-                              <th key={colKey} className="p-3 whitespace-nowrap">{colName}</th>
+                              <th key={idx} className="p-3 whitespace-nowrap">{name}</th>
                             );
                           })}
                         </tr>
@@ -455,12 +448,12 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
                       <tbody className="divide-y divide-slate-800/40">
                         {queryRows.map((row, i) => (
                           <tr key={i} className="hover:bg-slate-900/30">
-                            {queryColumns.map(col => {
-                              const colKey = col && typeof col === 'object' ? (col.key || col.name) : col;
-                              const colName = col && typeof col === 'object' ? col.name : col;
-                              const val = row[colKey] !== undefined ? row[colKey] : (row[colName] !== undefined ? row[colName] : row[colName?.toLowerCase()]);
+                            {queryColumns.map((col, idx) => {
+                              const name = col && typeof col === 'object' ? (col.name || '') : String(col);
+                              const camelKey = normalizeColumnName(name);
+                              const val = row[camelKey] !== undefined ? row[camelKey] : (row[name] !== undefined ? row[name] : row[name?.toLowerCase()]);
                               return (
-                                <td key={colKey} className="p-3 text-slate-300 whitespace-nowrap">
+                                <td key={idx} className="p-3 text-slate-300 whitespace-nowrap">
                                   {val !== null && val !== undefined ? (typeof val === 'object' ? JSON.stringify(val) : String(val)) : 'NULL'}
                                 </td>
                               );
