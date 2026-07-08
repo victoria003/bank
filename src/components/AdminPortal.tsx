@@ -99,15 +99,15 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
         fetch(apiPath('/api/admin/security/grants'), { headers })
       ]);
 
-      const dataMon = await resMon.json();
-      const dataHist = await resHist.json();
-      const dataRoles = await resRoles.json();
-      const dataGrants = await resGrants.json();
+      const dataMon = resMon.ok ? await resMon.json() : null;
+      const dataHist = resHist.ok ? await resHist.json() : [];
+      const dataRoles = resRoles.ok ? await resRoles.json() : [];
+      const dataGrants = resGrants.ok ? await resGrants.json() : [];
 
-      setMonitoring(dataMon);
-      setQueryHistory(dataHist);
-      setRoles(dataRoles);
-      setGrants(dataGrants);
+      setMonitoring(dataMon && typeof dataMon === 'object' && !Array.isArray(dataMon) ? dataMon : null);
+      setQueryHistory(Array.isArray(dataHist) ? dataHist : []);
+      setRoles(Array.isArray(dataRoles) ? dataRoles : []);
+      setGrants(Array.isArray(dataGrants) ? dataGrants : []);
     } catch (err) {
       console.error(err);
       setError('Connection refused. Ensure Express backend is online.');
@@ -177,8 +177,10 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
 
       setQueryColumns(data.columns || []);
       setQueryRows(data.rows || []);
-      setQueryTimeMs(data.durationMs);
-      setSuccessMsg(`Compiled: Query executed successfully by virtual Snowflake execution engine.`);
+      const duration = data.stats && typeof data.stats === 'object' ? (data.stats.duration || data.stats.durationMs) : null;
+      setQueryTimeMs(typeof duration === 'number' ? duration : (data.durationMs || null));
+      const message = typeof data.message === 'string' ? data.message : (data.message ? JSON.stringify(data.message) : 'Query executed successfully.');
+      setSuccessMsg(`Compiled: ${message}`);
       fetchAdminData(); // Update history
     } catch (err: any) {
       setError(err.message || 'Execution error.');
@@ -334,14 +336,14 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
         {error && (
           <div className="p-4 bg-rose-950/30 border border-rose-800/60 rounded-xl text-xs text-rose-300 flex items-center gap-3">
             <ShieldAlert className="h-5 w-5 text-rose-400 shrink-0" />
-            <span>{error}</span>
+            <span>{typeof error === 'object' ? JSON.stringify(error) : String(error)}</span>
           </div>
         )}
 
         {successMsg && (
           <div className="p-4 bg-emerald-950/30 border border-emerald-800/60 rounded-xl text-xs text-emerald-300 flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
-            <span>{successMsg}</span>
+            <span>{typeof successMsg === 'object' ? JSON.stringify(successMsg) : String(successMsg)}</span>
           </div>
         )}
 
@@ -425,9 +427,9 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
               <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
                 <div className="bg-slate-900/60 px-4 py-3 border-b border-slate-800 flex justify-between items-center text-xs">
                   <h3 className="font-bold text-slate-300 uppercase tracking-wider">Engine Results Output</h3>
-                  {queryTimeMs !== null && (
+                  {queryTimeMs !== null && queryTimeMs !== undefined && (
                     <span className="font-mono text-slate-500">
-                      Query parsed in <span className="text-emerald-400 font-bold">{queryTimeMs}ms</span>
+                      Query parsed in <span className="text-emerald-400 font-bold">{typeof queryTimeMs === 'object' ? JSON.stringify(queryTimeMs) : String(queryTimeMs)}ms</span>
                     </span>
                   )}
                 </div>
