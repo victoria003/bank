@@ -52,7 +52,10 @@ import { User, UserRole, SQLQueryLog } from './src/types.js';
 
 const app = express();
 const PORT = 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'enterprise_banking_snowflake_secret_2026';
+const JWT_SECRET = process.env.JWT_SECRET || '';
+if (!JWT_SECRET) {
+  console.warn('Warning: JWT_SECRET is not set. Set JWT_SECRET in your environment for secure token signing.');
+}
 
 app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
