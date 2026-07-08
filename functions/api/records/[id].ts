@@ -1,5 +1,5 @@
 import { buildJsonResponse, verifyToken } from '../_auth';
-import mockData from '../_mockData';
+import { executeSnowflakeSql } from '../_snowflake';
 
 function buildResponse(body: unknown, status = 200) {
   return buildJsonResponse(body, { status });
@@ -11,10 +11,13 @@ export async function onRequestGet(context: any) {
   if (!user) return buildResponse({ error: 'Unauthorized' }, 401);
 
   const id = context.params.id;
-  const records = (mockData as any).records || [];
-  const found = records.find((r: any) => r.id === id);
-  if (!found) return buildResponse({ error: 'Not found' }, 404);
-  return buildResponse(found);
+  try {
+    const result = await executeSnowflakeSql(context, 'SELECT id, name, email, details, created_at, updated_at FROM RECORDS WHERE id = ?', [id]);
+    if (!result.rows.length) return buildResponse({ error: 'Not found' }, 404);
+    return buildResponse(result.rows[0]);
+  } catch (err: any) {
+    return buildResponse({ error: err.message || 'Snowflake query failed' }, 500);
+  }
 }
 
 export async function onRequestPut(context: any) {
@@ -28,11 +31,16 @@ export async function onRequestPut(context: any) {
     const { name, email, details } = body;
     if (!name || !email) return buildResponse({ error: 'Name and email required' }, 400);
 
-    // Stateless update: return updated object
-    const updated = { id, name, email, details: details || '', updated_at: new Date().toISOString() };
-    return buildResponse(updated);
-  } catch (err) {
-    return buildResponse({ error: 'Bad Request' }, 400);
+    await executeSnowflakeSql(context,
+      'UPDATE RECORDS SET name = ?, email = ?, details = ?, updated_at = CURRENT_TIMESTAMP() WHERE id = ?',
+      [name, email, details || '', id]
+    );
+
+    const result = await executeSnowflakeSql(context, 'SELECT id, name, email, details, created_at, updated_at FROM RECORDS WHERE id = ?', [id]);
+    if (!result.rows.length) return buildResponse({ error: 'Not found' }, 404);
+    return buildResponse(result.rows[0]);
+  } catch (err: any) {
+    return buildResponse({ error: err.message || 'Bad Request' }, 400);
   }
 }
 
@@ -41,6 +49,11 @@ export async function onRequestDelete(context: any) {
   const user = verifyToken(auth);
   if (!user) return buildResponse({ error: 'Unauthorized' }, 401);
 
-  // Stateless delete: return success
-  return buildResponse({ success: true });
+  const id = context.params.id;
+  try {
+    await executeSnowflakeSql(context, 'DELETE FROM RECORDS WHERE id = ?', [id]);
+    return buildResponse({ success: true });
+  } catch (err: any) {
+    return buildResponse({ error: err.message || 'Snowflake delete failed' }, 500);
+  }
 }

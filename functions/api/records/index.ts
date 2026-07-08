@@ -1,5 +1,5 @@
 import { buildJsonResponse, verifyToken } from '../_auth';
-import { default as mockData } from '../_mockData';
+import { executeSnowflakeSql } from '../_snowflake';
 
 function buildResponse(body: unknown, status = 200) {
   return buildJsonResponse(body, { status });
@@ -10,10 +10,12 @@ export async function onRequestGet(context: any) {
   const user = verifyToken(auth);
   if (!user) return buildResponse({ error: 'Unauthorized' }, 401);
 
-  // If a SNOWFLAKE proxy is configured, forward request (not implemented here)
-  // Fallback to mock data
-  const records = (mockData as any).records || [];
-  return buildResponse(records);
+  try {
+    const result = await executeSnowflakeSql(context, 'SELECT id, name, email, details, created_at, updated_at FROM RECORDS ORDER BY created_at DESC');
+    return buildResponse(result.rows);
+  } catch (err: any) {
+    return buildResponse({ error: err.message || 'Snowflake query failed' }, 500);
+  }
 }
 
 export async function onRequestPost(context: any) {
@@ -26,12 +28,15 @@ export async function onRequestPost(context: any) {
     const { name, email, details } = body;
     if (!name || !email) return buildResponse({ error: 'Name and email required' }, 400);
 
-    const id = `rec-${Date.now().toString(36)}-${Math.floor(Math.random()*9000+1000)}`;
-    const created = { id, name, email, details: details || '', created_at: new Date().toISOString() };
+    const id = `rec-${Date.now().toString(36)}-${Math.floor(Math.random() * 9000 + 1000)}`;
+    await executeSnowflakeSql(context,
+      'INSERT INTO RECORDS (id, name, email, details, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP())',
+      [id, name, email, details || '']
+    );
 
-    // Note: Pages Functions are stateless — we return the created record but do not persist without external storage.
-    return buildResponse(created, 201);
-  } catch (err) {
-    return buildResponse({ error: 'Bad Request' }, 400);
+    const result = await executeSnowflakeSql(context, 'SELECT id, name, email, details, created_at, updated_at FROM RECORDS WHERE id = ?', [id]);
+    return buildResponse(result.rows[0] || null, 201);
+  } catch (err: any) {
+    return buildResponse({ error: err.message || 'Bad Request' }, 400);
   }
 }

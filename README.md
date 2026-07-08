@@ -32,7 +32,7 @@ Connect to your Snowflake web interface and copy the contents of `/snowflake_set
 * Time Travel structures.
 
 ### 3. Connect Platform to Snowflake
-Create a `.env` file at the root of the project (copying `.env.example`) and fill in your Snowflake credentials:
+Create a `.env` file at the root of the project (copying `.env.example`) and fill in your Snowflake and deployment credentials:
 
 ```env
 GEMINI_API_KEY="your_google_gemini_api_key"
@@ -41,14 +41,22 @@ JWT_SECRET="enterprise_banking_snowflake_secret_2026"
 # Snowflake Live Connection Params
 SNOWFLAKE_ACCOUNT="your_snowflake_org_id_and_account"
 SNOWFLAKE_USER="your_snowflake_username"
-SNOWFLAKE_PASSWORD="your_snowflake_password"
 SNOWFLAKE_DATABASE="ENTERPRISE_BANKING_DB"
 SNOWFLAKE_SCHEMA="BANKING_SCHEMA"
 SNOWFLAKE_WAREHOUSE="BANKING_ANALYTICS_WH"
 SNOWFLAKE_ROLE="BANKING_ADMIN"
+
+# Key-pair authentication details for Cloudflare Pages Functions
+SNOWFLAKE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+SNOWFLAKE_PUBLIC_KEY_FINGERPRINT="SHA256:..."
+# Optional override if your Snowflake account host is nonstandard
+SNOWFLAKE_API_HOST=""
+
+# Or, if you prefer OAuth-based auth instead of key-pair
+SNOWFLAKE_OAUTH_TOKEN=""
 ```
 
-*Note: The platform is built using lazy initialization so if credentials are not specified, it remains fully usable by fallback-mocking the connection seamlessly.*
+*Note: The app now uses Cloudflare Pages Functions + the Snowflake SQL API and does not require the native `snowflake-sdk` package.*
 
 ---
 
@@ -68,6 +76,6 @@ To test role-based segregation immediately, sign in with one of these preconfigu
 ## 🛠️ Technological Footprint
 
 * **Frontend Framework**: React.js with Tailwind CSS v4, Lucide Icons, and Recharts.
-* **Server Stack**: Node.js, Express.js, TypeScript bundling server.
-* **AI Engine**: Google Gemini API SDK (`@google/genai`) power-translating natural language to Snowflake SQL statements.
-* **DB Driver**: Official Native `snowflake-sdk` driver.
+* **Server Stack**: Cloudflare Pages Functions using TypeScript and the Snowflake SQL API.
+* **AI Engine**: Google Gemini API SDK (`@google/genai`) for English-to-SQL translation and analytics prompts.
+* **Database Integration**: Snowflake SQL API via key-pair JWT or OAuth, no native `snowflake-sdk` dependency required.

@@ -38,6 +38,16 @@ const USERS_DB: Record<string, PagesUser & { password: string }> = {
   }
 };
 
+function base64UrlEncode(value: string) {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlDecode(value: string) {
+  const padded = value + '='.repeat((4 - (value.length % 4)) % 4);
+  const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
+  return atob(base64);
+}
+
 export function getUserForCredentials(username: string, password: string) {
   const user = USERS_DB[username.toLowerCase()];
   if (!user || user.password !== password) {
@@ -47,20 +57,30 @@ export function getUserForCredentials(username: string, password: string) {
 }
 
 export function createToken(username: string) {
-  return `dummy-token-${username}`;
+  const payload = {
+    username,
+    iat: Math.floor(Date.now() / 1000)
+  };
+  return `dev-token.${base64UrlEncode(JSON.stringify(payload))}`;
 }
 
 export function verifyToken(authHeader: string | null) {
   if (!authHeader) return null;
   const [scheme, token] = authHeader.split(' ');
   if (scheme !== 'Bearer' || !token) return null;
-  const match = token.match(/^dummy-token-(.+)$/);
-  if (!match) return null;
+  if (!token.startsWith('dev-token.')) return null;
 
-  const username = match[1];
-  const user = USERS_DB[username.toLowerCase()];
-  if (!user) return null;
-  return { username: user.username, name: user.name, email: user.email, role: user.role };
+  const payload = token.slice('dev-token.'.length);
+  try {
+    const decoded = JSON.parse(base64UrlDecode(payload));
+    const username = typeof decoded?.username === 'string' ? decoded.username : null;
+    if (!username) return null;
+    const user = USERS_DB[username.toLowerCase()];
+    if (!user) return null;
+    return { username: user.username, name: user.name, email: user.email, role: user.role };
+  } catch {
+    return null;
+  }
 }
 
 export function buildJsonResponse(body: unknown, init?: ResponseInit) {

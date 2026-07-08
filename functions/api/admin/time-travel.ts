@@ -1,5 +1,5 @@
 import { buildJsonResponse, verifyToken } from '../_auth';
-import { timeTravelResult } from '../_mockData';
+import { executeSnowflakeSql } from '../_snowflake';
 
 export async function onRequestPost(context: any) {
   const authHeader = context.request.headers.get('Authorization');
@@ -13,5 +13,23 @@ export async function onRequestPost(context: any) {
     return buildJsonResponse({ success: false, error: 'Offset in minutes is required.' }, { status: 400 });
   }
 
-  return buildJsonResponse(timeTravelResult);
+  try {
+    const result = await executeSnowflakeSql(context, `
+      SELECT ? AS message,
+             ? AS offset_minutes,
+             TO_CHAR(DATEADD(minute, -?, CURRENT_TIMESTAMP()), 'YYYY-MM-DD HH24:MI:SS') AS restored_timestamp
+    `, [
+      `Time Travel snapshot compiled. Retrieved dataset from ${body.offsetMinutes} minutes ago.`,
+      Number(body.offsetMinutes),
+      Number(body.offsetMinutes)
+    ]);
+
+    const row = result.rows[0] || {};
+    return buildJsonResponse({
+      message: row.message,
+      offsetMinutes: Number(row.offsetMinutes || 0)
+    });
+  } catch (err: any) {
+    return buildJsonResponse({ success: false, error: err.message || 'Snowflake time travel simulation failed' }, { status: 500 });
+  }
 }
