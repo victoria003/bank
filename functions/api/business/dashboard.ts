@@ -3,7 +3,7 @@ import { executeSnowflakeSql } from '../_snowflake';
 
 export async function onRequestGet(context: any) {
   const authHeader = context.request.headers.get('Authorization');
-  const user = verifyToken(authHeader);
+  const user = await verifyToken(authHeader, context);
   if (!user) {
     return buildJsonResponse({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
@@ -12,15 +12,14 @@ export async function onRequestGet(context: any) {
     const [summary, daily, monthly, recent] = await Promise.all([
       executeSnowflakeSql(context, `
         SELECT
-          COUNT(DISTINCT customer_id) AS total_customers,
-          COUNT(DISTINCT account_number) AS total_accounts,
-          COUNT(DISTINCT transaction_id) AS total_transactions,
-          COUNT(DISTINCT loan_id) AS total_loans,
-          COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN amount ELSE 0 END), 0) AS total_revenue,
+          (SELECT COUNT(*) FROM CUSTOMERS) AS total_customers,
+          (SELECT COUNT(*) FROM ACCOUNTS) AS total_accounts,
+          (SELECT COUNT(*) FROM TRANSACTIONS) AS total_transactions,
+          (SELECT COUNT(*) FROM LOANS) AS total_loans,
+          (SELECT COALESCE(SUM(amount), 0) FROM TRANSACTIONS WHERE status = 'COMPLETED') AS total_revenue,
           (SELECT COUNT(*) FROM BRANCH_PERFORMANCE) AS total_branches,
           (SELECT COUNT(*) FROM LOANS WHERE status = 'ACTIVE') AS active_loans,
           (SELECT COUNT(*) FROM TRANSACTIONS WHERE risk_factor = 'HIGH' AND status = 'COMPLETED') AS high_risk_transactions
-        FROM TRANSACTIONS
       `),
       executeSnowflakeSql(context, `
         SELECT TO_CHAR(timestamp, 'YYYY-MM-DD') AS date,

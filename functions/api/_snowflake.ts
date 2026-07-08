@@ -16,6 +16,7 @@ function base64UrlDecode(value: string) {
 
 function parsePemPrivateKey(pem: string) {
   const cleaned = pem
+    .replace(/\\n/g, '\n')
     .replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '')
     .replace(/\s+/g, '');
   return base64UrlDecode(cleaned).buffer;

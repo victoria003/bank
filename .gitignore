@@ -9,3 +9,5 @@ coverage/
 .env.local
 .wrangler/
 .vscode/
+*.pem
+.dev.vars

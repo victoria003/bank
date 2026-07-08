@@ -3,7 +3,7 @@ import { executeSnowflakeSql } from '../_snowflake';
 
 export async function onRequestGet(context: any) {
   const authHeader = context.request.headers.get('Authorization');
-  const user = verifyToken(authHeader);
+  const user = await verifyToken(authHeader, context);
   if (!user) {
     return buildJsonResponse({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
@@ -17,8 +17,8 @@ export async function onRequestGet(context: any) {
     let query = `
       SELECT
         t.transaction_id AS id,
-        t.account_number AS accountNumber,
-        COALESCE(c.name, 'Unknown') AS customerName,
+        t.account_number,
+        COALESCE(c.name, 'Unknown') AS customer_name,
         t.transaction_type AS type,
         t.amount,
         t.currency,
@@ -26,7 +26,7 @@ export async function onRequestGet(context: any) {
         t.status,
         t.merchant_name AS merchant,
         t.location,
-        t.risk_factor AS riskFactor
+        t.risk_factor
       FROM TRANSACTIONS t
       LEFT JOIN ACCOUNTS a ON t.account_number = a.account_number
       LEFT JOIN CUSTOMERS c ON a.customer_id = c.customer_id

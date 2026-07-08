@@ -7,11 +7,19 @@ function buildResponse(body: unknown, status = 200) {
 
 export async function onRequestGet(context: any) {
   const auth = context.request.headers.get('Authorization');
-  const user = verifyToken(auth);
+  const user = await verifyToken(auth, context);
   if (!user) return buildResponse({ error: 'Unauthorized' }, 401);
 
   try {
-    const result = await executeSnowflakeSql(context, 'SELECT id, name, email, details, created_at, updated_at FROM RECORDS ORDER BY created_at DESC');
+    const snowflakeConfigured = Boolean(
+      (context && context.env && (context.env.SNOWFLAKE_OAUTH_TOKEN || context.env.SNOWFLAKE_PRIVATE_KEY)) ||
+      (typeof process !== 'undefined' && (process.env.SNOWFLAKE_OAUTH_TOKEN || process.env.SNOWFLAKE_PRIVATE_KEY))
+    );
+    if (!snowflakeConfigured) {
+      // Local dev fallback: return empty list when Snowflake is not configured
+      return buildResponse([]);
+    }
+    const result = await executeSnowflakeSql(context, 'SELECT id, name, email, details, created_at, updated_at FROM APP_RECORDS ORDER BY created_at DESC');
     return buildResponse(result.rows);
   } catch (err: any) {
     return buildResponse({ error: err.message || 'Snowflake query failed' }, 500);
@@ -20,7 +28,7 @@ export async function onRequestGet(context: any) {
 
 export async function onRequestPost(context: any) {
   const auth = context.request.headers.get('Authorization');
-  const user = verifyToken(auth);
+  const user = await verifyToken(auth, context);
   if (!user) return buildResponse({ error: 'Unauthorized' }, 401);
 
   try {
@@ -30,11 +38,11 @@ export async function onRequestPost(context: any) {
 
     const id = `rec-${Date.now().toString(36)}-${Math.floor(Math.random() * 9000 + 1000)}`;
     await executeSnowflakeSql(context,
-      'INSERT INTO RECORDS (id, name, email, details, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP())',
+      'INSERT INTO APP_RECORDS (id, name, email, details, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP())',
       [id, name, email, details || '']
     );
 
-    const result = await executeSnowflakeSql(context, 'SELECT id, name, email, details, created_at, updated_at FROM RECORDS WHERE id = ?', [id]);
+    const result = await executeSnowflakeSql(context, 'SELECT id, name, email, details, created_at, updated_at FROM APP_RECORDS WHERE id = ?', [id]);
     return buildResponse(result.rows[0] || null, 201);
   } catch (err: any) {
     return buildResponse({ error: err.message || 'Bad Request' }, 400);

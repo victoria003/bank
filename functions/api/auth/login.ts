@@ -14,9 +14,10 @@ export async function onRequestPost(context: any) {
       return buildJsonResponse({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 
+    const token = await createToken(user.username, context);
     return buildJsonResponse({
       success: true,
-      token: createToken(user.username),
+      token,
       user: {
         name: user.name,
         email: user.email,

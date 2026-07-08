@@ -3,7 +3,7 @@ import { executeSnowflakeSql } from '../_snowflake';
 
 export async function onRequestGet(context: any) {
   const authHeader = context.request.headers.get('Authorization');
-  const user = verifyToken(authHeader);
+  const user = await verifyToken(authHeader, context);
   if (!user) {
     return buildJsonResponse({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
@@ -12,12 +12,12 @@ export async function onRequestGet(context: any) {
     const result = await executeSnowflakeSql(context, `
       SELECT
         alert_id AS id,
-        transaction_id AS transactionId,
-        COALESCE(c.name, 'Unknown') AS customerName,
+        transaction_id,
+        COALESCE(c.name, 'Unknown') AS customer_name,
         amount,
         alert_type AS type,
         TO_CHAR(f.timestamp, 'YYYY-MM-DD HH24:MI:SS') AS timestamp,
-        risk_score AS riskScore,
+        f.risk_score,
         status,
         details
       FROM FRAUD_ALERTS f

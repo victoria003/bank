@@ -3,7 +3,7 @@ import { executeSnowflakeSql } from '../_snowflake';
 
 export async function onRequestGet(context: any) {
   const authHeader = context.request.headers.get('Authorization');
-  const user = verifyToken(authHeader);
+  const user = await verifyToken(authHeader, context);
   if (!user) {
     return buildJsonResponse({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
@@ -21,10 +21,10 @@ export async function onRequestGet(context: any) {
         email,
         phone,
         segment,
-        lifetime_value AS lifetimeValue,
+        lifetime_value,
         branch_name AS branch,
-        risk_score AS riskScore,
-        TO_CHAR(joined_date, 'YYYY-MM-DD') AS joinedDate
+        risk_score,
+        TO_CHAR(joined_date, 'YYYY-MM-DD') AS joined_date
       FROM CUSTOMERS
       WHERE 1 = 1
     `;
@@ -49,7 +49,7 @@ export async function onRequestGet(context: any) {
       const accountPlaceholders = customerIds.map(() => '?').join(', ');
       const accountsResult = await executeSnowflakeSql(
         context,
-        `SELECT account_number AS accountNumber, account_type AS type, balance, status, customer_id AS customerId FROM ACCOUNTS WHERE customer_id IN (${accountPlaceholders})`,
+        `SELECT account_number, account_type AS type, balance, status, customer_id FROM ACCOUNTS WHERE customer_id IN (${accountPlaceholders})`,
         customerIds
       );
       accounts.push(...accountsResult.rows);

@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$login = Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/api/login' -ContentType 'application/json' -Body '{"username":"admin","password":"admin123"}'
+$login = Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/api/auth/login' -ContentType 'application/json' -Body '{"username":"admin","password":"admin123"}'
 $token = $login.token
 Write-Output 'LOGIN_RESPONSE:'
 $login | ConvertTo-Json -Depth 5

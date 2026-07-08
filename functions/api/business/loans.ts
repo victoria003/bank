@@ -3,7 +3,7 @@ import { executeSnowflakeSql } from '../_snowflake';
 
 export async function onRequestGet(context: any) {
   const authHeader = context.request.headers.get('Authorization');
-  const user = verifyToken(authHeader);
+  const user = await verifyToken(authHeader, context);
   if (!user) {
     return buildJsonResponse({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
@@ -17,17 +17,17 @@ export async function onRequestGet(context: any) {
     let query = `
       SELECT
         l.loan_id AS id,
-        COALESCE(c.name, 'Unknown') AS customerName,
+        COALESCE(c.name, 'Unknown') AS customer_name,
         l.category,
         l.amount,
-        l.interest_rate AS interestRate,
-        l.term_months AS termMonths,
+        l.interest_rate,
+        l.term_months,
         l.emi,
-        l.remaining_balance AS remainingBalance,
-        TO_CHAR(l.next_due_date, 'YYYY-MM-DD') AS nextDueDate,
+        l.remaining_balance,
+        TO_CHAR(l.next_due_date, 'YYYY-MM-DD') AS next_due_date,
         l.status,
-        l.risk_rating AS riskRating,
-        l.recovered_amount AS recoveredAmount
+        l.risk_rating,
+        l.recovered_amount
       FROM LOANS l
       LEFT JOIN CUSTOMERS c ON l.customer_id = c.customer_id
       WHERE 1 = 1

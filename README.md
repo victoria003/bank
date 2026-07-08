@@ -79,3 +79,73 @@ To test role-based segregation immediately, sign in with one of these preconfigu
 * **Server Stack**: Cloudflare Pages Functions using TypeScript and the Snowflake SQL API.
 * **AI Engine**: Google Gemini API SDK (`@google/genai`) for English-to-SQL translation and analytics prompts.
 * **Database Integration**: Snowflake SQL API via key-pair JWT or OAuth, no native `snowflake-sdk` dependency required.
+
+---
+
+## 🔑 Snowflake Key-Pair Authentication (RSA)
+
+This project prefers Snowflake key-pair authentication for Cloudflare Pages Functions (no password or native `snowflake-sdk`).
+
+1) Generate an RSA key pair (PKCS8 private key + PEM public key).
+
+Recommended (Git Bash / Linux / macOS):
+
+```bash
+# Generate a 2048-bit RSA private key in PKCS8 format
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out private_key.pem
+
+# Extract the public key in PEM format
+openssl rsa -pubout -in private_key.pem -out public_key.pem
+```
+
+Windows PowerShell (if OpenSSL is available):
+
+```powershell
+# Use Git Bash or WSL for best compatibility. If using native OpenSSL, run same openssl commands in PowerShell.
+```
+
+2) Compute the `SNOWFLAKE_PUBLIC_KEY_FINGERPRINT` (Snowflake expects `SHA256:<base64>`):
+
+```bash
+# Derive fingerprint: DER-encode public key, hash SHA256, then base64
+openssl rsa -pubin -in public_key.pem -outform DER | openssl dgst -sha256 -binary | openssl base64
+
+# Prepend 'SHA256:' to the output when placing into env or Snowflake.
+# Example result: SHA256:AbCdEfGhIjK...==
+```
+
+3) Register the public key with your Snowflake user (run in Snowflake worksheet or via SnowSQL):
+
+```sql
+ALTER USER "<USER_NAME>" SET RSA_PUBLIC_KEY='-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkq...\n-----END PUBLIC KEY-----';
+```
+
+Replace `<USER_NAME>` with your Snowflake username. You can paste the full PEM block (including newlines) into the SQL string; in many SQL clients you should escape single quotes accordingly.
+
+4) Environment variables
+
+Place the private key and fingerprint into your environment or Cloudflare Pages Secrets (recommended):
+
+- `SNOWFLAKE_PRIVATE_KEY` — the full PEM PKCS8 private key (multi-line, include `\n` when stored in a single-line env var)
+- `SNOWFLAKE_PUBLIC_KEY_FINGERPRINT` — `SHA256:<base64_fingerprint>`
+
+DO NOT commit `SNOWFLAKE_PRIVATE_KEY` to source control. Use the Cloudflare Pages Secrets UI, a secure secrets manager, or environment variables in CI.
+
+5) Local testing steps (after you set env vars or secrets)
+
+```powershell
+# restart local Pages dev with env vars available in the session
+$env:SNOWFLAKE_PRIVATE_KEY = Get-Content -Raw ./private_key.pem
+$env:SNOWFLAKE_PUBLIC_KEY_FINGERPRINT = 'SHA256:...'
+npx wrangler pages dev . --port 8787
+```
+
+6) Notes on formats and compatibility
+
+- The private key must be PKCS8 (`-----BEGIN PRIVATE KEY-----`). If you generated a PKCS1 key (`-----BEGIN RSA PRIVATE KEY-----`), convert it:
+
+```bash
+openssl pkcs8 -topk8 -inform PEM -outform PEM -in rsa_private_pkcs1.pem -out private_key.pem -nocrypt
+```
+
+---
