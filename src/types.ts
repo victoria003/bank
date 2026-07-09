@@ -2,7 +2,7 @@
  * Type declarations for the Banking Analytics Platform
  */
 
-export type UserRole = 'ADMIN' | 'DATA_ENGINEER' | 'ANALYST' | 'BUSINESS_USER';
+export type UserRole = 'BANKING_ADMIN' | 'BANKING_DATA_ENGINEER' | 'BANKING_ANALYST' | 'BANKING_BUSINESS_USER';
 
 export interface User {
   id: string;

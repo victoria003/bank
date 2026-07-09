@@ -25,9 +25,9 @@ export default function App() {
         if (data.success && data.user) {
           setUser(data.user);
 
-          if (data.user.role === 'BUSINESS_USER') {
+          if (data.user.role === 'BANKING_BUSINESS_USER' || data.user.role === 'BUSINESS_USER') {
             setActivePortal('business');
-          } else if (data.user.role === 'DATA_ENGINEER') {
+          } else if (data.user.role === 'BANKING_DATA_ENGINEER' || data.user.role === 'DATA_ENGINEER') {
             setActivePortal('admin');
           } else {
             setActivePortal('business');
@@ -62,9 +62,9 @@ export default function App() {
     setToken(newToken);
     setUser(loggedInUser);
     
-    if (loggedInUser.role === 'BUSINESS_USER') {
+    if (loggedInUser.role === 'BANKING_BUSINESS_USER' || loggedInUser.role === 'BUSINESS_USER') {
       setActivePortal('business');
-    } else if (loggedInUser.role === 'DATA_ENGINEER') {
+    } else if (loggedInUser.role === 'BANKING_DATA_ENGINEER' || loggedInUser.role === 'DATA_ENGINEER') {
       setActivePortal('admin');
     } else {
       setActivePortal('business');
@@ -91,7 +91,7 @@ export default function App() {
   }
 
   // Determine portal availability based on roles
-  const canAccessAdmin = user.role === 'ADMIN' || user.role === 'DATA_ENGINEER' || user.role === 'ANALYST';
+  const canAccessAdmin = user.role === 'BANKING_ADMIN' || user.role === 'BANKING_DATA_ENGINEER' || user.role === 'BANKING_ANALYST' || user.role === 'ADMIN' || user.role === 'DATA_ENGINEER' || user.role === 'ANALYST';
   const canAccessBusiness = true; // All roles can view basic business performance views
 
   return (
@@ -149,9 +149,9 @@ export default function App() {
             <div className="flex items-center gap-2 justify-end">
               <span className="text-xs font-bold text-slate-300">{user.name}</span>
               <span className={`text-[10px] font-mono font-black px-1.5 py-0.2 rounded-full uppercase ${
-                user.role === 'ADMIN' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                user.role === 'DATA_ENGINEER' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                user.role === 'ANALYST' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
+                (user.role === 'ADMIN' || user.role === 'BANKING_ADMIN') ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                (user.role === 'DATA_ENGINEER' || user.role === 'BANKING_DATA_ENGINEER') ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                (user.role === 'ANALYST' || user.role === 'BANKING_ANALYST') ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
                 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
               }`}>
                 {user.role}

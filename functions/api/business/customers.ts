@@ -1,4 +1,4 @@
-import { buildJsonResponse, verifyToken } from '../_auth';
+import { buildJsonResponse, verifyToken, verifyPermission } from '../_auth';
 import { executeSnowflakeSql } from '../_snowflake';
 
 export async function onRequestGet(context: any) {
@@ -6,6 +6,10 @@ export async function onRequestGet(context: any) {
   const user = await verifyToken(authHeader, context);
   if (!user) {
     return buildJsonResponse({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!verifyPermission(user, 'read', 'customers')) {
+    return buildJsonResponse({ success: false, error: 'Access Denied: Forbidden' }, { status: 403 });
   }
 
   const params = new URL(context.request.url).searchParams;
@@ -68,5 +72,63 @@ export async function onRequestGet(context: any) {
     return buildJsonResponse(customers);
   } catch (err: any) {
     return buildJsonResponse({ success: false, error: err.message || 'Snowflake query failed' }, { status: 500 });
+  }
+}
+
+export async function onRequestPost(context: any) {
+  const authHeader = context.request.headers.get('Authorization');
+  const user = await verifyToken(authHeader, context);
+  if (!user) {
+    return buildJsonResponse({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!verifyPermission(user, 'create', 'customers')) {
+    return buildJsonResponse({ success: false, error: 'Access Denied: Forbidden' }, { status: 403 });
+  }
+
+  try {
+    const body = await context.request.json();
+    const { name, email, phone, segment, lifetimeValue, branch, riskScore } = body;
+    if (!name || !email) {
+      return buildJsonResponse({ success: false, error: 'Name and email are required.' }, { status: 400 });
+    }
+
+    const customerId = `CUS${Math.floor(10000 + Math.random() * 90000)}`;
+    const ltv = lifetimeValue !== undefined ? Number(lifetimeValue) : 0;
+    const rScore = riskScore !== undefined ? Number(riskScore) : 0;
+
+    const cleanPhone = phone ? phone.replace(/\D/g, '') : null;
+
+    await executeSnowflakeSql(context,
+      `INSERT INTO CUSTOMERS (customer_id, name, email, phone, segment, lifetime_value, branch_name, risk_score, joined_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE())`,
+      [customerId, name, email, cleanPhone, segment || 'BRONZE', ltv, branch || 'Main Branch', rScore]
+    );
+
+    const result = await executeSnowflakeSql(context, `
+      SELECT
+        customer_id AS id,
+        name,
+        email,
+        phone,
+        segment,
+        lifetime_value,
+        branch_name AS branch,
+        risk_score,
+        TO_CHAR(joined_date, 'YYYY-MM-DD') AS joined_date
+      FROM CUSTOMERS
+      WHERE customer_id = ?
+    `, [customerId]);
+
+    const created = result.rows[0];
+    if (created) {
+      created.lifetimeValue = Number(created.lifetimeValue);
+      created.riskScore = Number(created.riskScore);
+      created.accounts = [];
+    }
+
+    return buildJsonResponse(created, { status: 201 });
+  } catch (err: any) {
+    return buildJsonResponse({ success: false, error: err.message || 'Customer creation failed' }, { status: 500 });
   }
 }

@@ -156,6 +156,14 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
     const text = queryTextToRun || sqlQuery;
     if (!text) return;
 
+    if (user.role === 'BANKING_ANALYST' || user.role === 'ANALYST') {
+      const queryTrim = text.trim().replace(/^\/\*[\s\S]*?\*\//g, '').trim();
+      if (!queryTrim.toUpperCase().startsWith('SELECT') && !queryTrim.toUpperCase().startsWith('SHOW')) {
+        setError('Security Restriction: Risk Analysts are strictly permitted to execute read-only SELECT or SHOW statements.');
+        return;
+      }
+    }
+
     setError('');
     setSuccessMsg('');
     setIsLoading(true);
@@ -307,7 +315,15 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
           { tab: 'recovery', label: '🕒 Time Travel & Cloning' },
           { tab: 'monitoring', label: '📊 Warehouses & Pipes' },
           { tab: 'ai', label: '✨ Cortex AI & ML' }
-        ].map((item) => {
+        ].filter(item => {
+          if (user.role === 'BANKING_ANALYST' || user.role === 'ANALYST') {
+            return item.tab === 'sql';
+          }
+          if (user.role === 'BANKING_DATA_ENGINEER' || user.role === 'DATA_ENGINEER') {
+            return item.tab !== 'security';
+          }
+          return true;
+        }).map((item) => {
           const isActive = activeTab === item.tab;
           return (
             <button
@@ -435,33 +451,40 @@ export default function AdminPortal({ user, token }: AdminPortalProps) {
                 </div>
 
                 <div className="overflow-x-auto max-h-80">
-                  {queryRows.length > 0 ? (
+                  {queryColumns.length > 0 ? (
                     <table className="w-full text-left text-xs font-mono">
                       <thead className="bg-slate-900/90 text-slate-400 uppercase border-b border-slate-800 sticky top-0">
                         <tr>
-                          {queryColumns.map((col, idx) => {
-                            const name = col && typeof col === 'object' ? (col.name || '') : String(col);
-                            return (
-                              <th key={idx} className="p-3 whitespace-nowrap">{name}</th>
-                            );
-                          })}
+                          {queryColumns.map((col, idx) => (
+                            <th key={idx} className="p-3 whitespace-nowrap">
+                              {col && typeof col === 'object' ? (col.name || '') : String(col)}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/40">
-                        {queryRows.map((row, i) => (
-                          <tr key={i} className="hover:bg-slate-900/30">
-                            {queryColumns.map((col, idx) => {
-                              const name = col && typeof col === 'object' ? (col.name || '') : String(col);
-                              const camelKey = normalizeColumnName(name);
-                              const val = row[camelKey] !== undefined ? row[camelKey] : (row[name] !== undefined ? row[name] : row[name?.toLowerCase()]);
-                              return (
-                                <td key={idx} className="p-3 text-slate-300 whitespace-nowrap">
-                                  {val !== null && val !== undefined ? (typeof val === 'object' ? JSON.stringify(val) : String(val)) : 'NULL'}
-                                </td>
-                              );
-                            })}
+                        {queryRows.length > 0 ? (
+                          queryRows.map((row, i) => (
+                            <tr key={i} className="hover:bg-slate-900/30">
+                              {queryColumns.map((col, idx) => {
+                                const name = col && typeof col === 'object' ? (col.name || '') : String(col);
+                                const camelKey = normalizeColumnName(name);
+                                const val = row[camelKey] !== undefined ? row[camelKey] : (row[name] !== undefined ? row[name] : row[name?.toLowerCase()]);
+                                return (
+                                  <td key={idx} className="p-3 text-slate-300 whitespace-nowrap">
+                                    {val !== null && val !== undefined ? (typeof val === 'object' ? JSON.stringify(val) : String(val)) : 'NULL'}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={queryColumns.length} className="p-8 text-center text-slate-500 italic">
+                              No rows returned (empty result set).
+                            </td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </table>
                   ) : (

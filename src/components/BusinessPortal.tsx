@@ -6,7 +6,14 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { User, ExecutiveMetrics, CustomerProfile, TransactionRecord, LoanRecord, BranchRecord, FraudAlert } from '../types';
-import RecordsManager from './RecordsManager';
+import apiPath from '../api';
+
+import CustomersManager from './crud/CustomersManager';
+import AccountsManager from './crud/AccountsManager';
+import TransactionsManager from './crud/TransactionsManager';
+import LoansManager from './crud/LoansManager';
+import BranchesManager from './crud/BranchesManager';
+import FraudAlertsManager from './crud/FraudAlertsManager';
 
 interface BusinessPortalProps {
   user: User;
@@ -14,12 +21,13 @@ interface BusinessPortalProps {
 }
 
 export default function BusinessPortal({ user, token }: BusinessPortalProps) {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'customers' | 'transactions' | 'loans' | 'branches' | 'fraud' | 'records'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'customers' | 'accounts' | 'transactions' | 'loans' | 'branches' | 'fraud'>('dashboard');
   const [metrics, setMetrics] = useState<ExecutiveMetrics | null>(null);
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
-  const [loans, setLoans] = useState<LoanRecord[]>([]);
-  const [branches, setBranches] = useState<BranchRecord[]>([]);
+  const [loans, setLoanRecords] = useState<LoanRecord[]>([]);
+  const [branches, setBranchRecords] = useState<BranchRecord[]>([]);
   const [fraudAlerts, setFraudAlerts] = useState<FraudAlert[]>([]);
   
   // Filters
@@ -40,19 +48,20 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       
-      import('../api').then(({ default: apiPath }) => {});
-      const [resMetrics, resCust, resTx, resLoans, resBranches, resFraud] = await Promise.all([
-        fetch((await import('../api')).default('/api/business/dashboard'), { headers }),
-        fetch((await import('../api')).default(`/api/business/customers?search=${custSearch}&segment=${custSegment}`), { headers }),
-        fetch((await import('../api')).default(`/api/business/transactions?type=${txType}&risk=${txRisk}`), { headers }),
-        fetch((await import('../api')).default(`/api/business/loans?category=${loanCategory}&rating=${loanRating}`), { headers }),
-        fetch((await import('../api')).default('/api/business/branches'), { headers }),
-        fetch((await import('../api')).default('/api/business/fraud-alerts'), { headers })
+      const [resMetrics, resCust, resAccounts, resTx, resLoans, resBranches, resFraud] = await Promise.all([
+        fetch(apiPath('/api/business/dashboard'), { headers }),
+        fetch(apiPath('/api/business/customers'), { headers }),
+        fetch(apiPath('/api/business/accounts'), { headers }),
+        fetch(apiPath('/api/business/transactions'), { headers }),
+        fetch(apiPath('/api/business/loans'), { headers }),
+        fetch(apiPath('/api/business/branches'), { headers }),
+        fetch(apiPath('/api/business/fraud-alerts'), { headers })
       ]);
 
-      const [dataMetrics, dataCust, dataTx, dataLoans, dataBranches, dataFraud] = await Promise.all([
+      const [dataMetrics, dataCust, dataAccounts, dataTx, dataLoans, dataBranches, dataFraud] = await Promise.all([
         resMetrics.json(),
         resCust.json(),
+        resAccounts.json(),
         resTx.json(),
         resLoans.json(),
         resBranches.json(),
@@ -61,9 +70,10 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
 
       setMetrics(dataMetrics);
       setCustomers(dataCust);
+      setAccounts(Array.isArray(dataAccounts) ? dataAccounts : []);
       setTransactions(dataTx);
-      setLoans(dataLoans);
-      setBranches(dataBranches);
+      setLoanRecords(dataLoans);
+      setBranchRecords(dataBranches);
       setFraudAlerts(dataFraud);
     } catch (err) {
       console.error(err);
@@ -75,7 +85,7 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
 
   useEffect(() => {
     fetchData();
-  }, [custSearch, custSegment, txType, txRisk, loanCategory, loanRating]);
+  }, []);
 
   // Utility to format large values
   const formatUSD = (val: number) => {
@@ -111,7 +121,12 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
 
       {/* Tabs Menu */}
       <div className="bg-slate-950/40 border-b border-slate-800/80 px-6 py-1 flex overflow-x-auto gap-2">
-        {(['dashboard', 'customers', 'transactions', 'loans', 'branches', 'fraud', 'records'] as const).map((tab) => {
+        {(['dashboard', 'customers', 'accounts', 'transactions', 'loans', 'branches', 'fraud'] as const).filter((tab) => {
+          if (user.role === 'BANKING_BUSINESS_USER' || user.role === 'BUSINESS_USER') {
+            return tab === 'dashboard';
+          }
+          return true;
+        }).map((tab) => {
           const isActive = activeTab === tab;
           const label = tab.charAt(0).toUpperCase() + tab.slice(1);
           return (
@@ -124,7 +139,7 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
                   : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-800'
               }`}
             >
-              {tab === 'fraud' ? '🚨 Fraud Hub' : tab === 'records' ? 'Records' : label + ' Analytics'}
+              {tab === 'fraud' ? '🚨 Fraud Hub' : tab === 'accounts' ? '💳 Accounts Registry' : label + ' Analytics'}
             </button>
           );
         })}
@@ -310,329 +325,83 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
         {/* 2. CUSTOMER ANALYTICS SUB-VIEW */}
         {activeTab === 'customers' && (
           <div className="space-y-6 animate-fade-in">
-            {/* Search & Filter bar */}
-            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-4 items-center">
-              <div className="relative flex-1 w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Query customer registry by name, email, or customer ID..."
-                  value={custSearch}
-                  onChange={(e) => setCustSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 text-slate-100 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+            <CustomersManager
+              token={token}
+              user={user}
+              customers={customers}
+              branches={branches}
+              isLoading={isLoading}
+              onRefresh={fetchData}
+              custSearch={custSearch}
+              setCustSearch={setCustSearch}
+              custSegment={custSegment}
+              setCustSegment={setCustSegment}
+            />
+          </div>
+        )}
 
-              <div className="flex gap-2 w-full md:w-auto">
-                <span className="text-xs text-slate-400 flex items-center font-semibold uppercase gap-1 shrink-0">
-                  <SlidersHorizontal className="h-4.5 w-4.5" /> Filter Segment:
-                </span>
-                <select
-                  value={custSegment}
-                  onChange={(e) => setCustSegment(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 text-slate-100 px-3 py-1.5 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="ALL">All Segments</option>
-                  <option value="PLATINUM">💎 Platinum Tier</option>
-                  <option value="GOLD">🥇 Gold Tier</option>
-                  <option value="SILVER">🥈 Silver Tier</option>
-                  <option value="BRONZE">🥉 Bronze Tier</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Customers Grid */}
-            <div className="grid md:grid-cols-2 gap-4">
-              {customers.map((c) => (
-                <div key={c.id} className="p-5 bg-slate-950 rounded-xl border border-slate-800 hover:border-slate-700 transition-all space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-bold text-slate-100 text-sm flex items-center gap-2">
-                        {c.name}
-                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
-                          c.segment === 'PLATINUM' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
-                          c.segment === 'GOLD' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                          c.segment === 'SILVER' ? 'bg-slate-400/10 text-slate-300 border border-slate-400/20' :
-                          'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-                        }`}>
-                          {c.segment}
-                        </span>
-                      </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{c.id} • Registered {c.joinedDate}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] text-slate-500 uppercase font-mono">Platform LTV</div>
-                      <div className="font-bold text-emerald-400 text-sm">{formatUSD(c.lifetimeValue)}</div>
-                    </div>
-                  </div>
-
-                  {/* Profile Details */}
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-900/50 rounded-lg text-[11px] border border-slate-800/40">
-                    <div>
-                      <span className="text-slate-500 block">Email Address</span>
-                      <span className="text-slate-300 font-medium">{c.email}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Mobile Phone</span>
-                      <span className="text-slate-300 font-medium font-mono">{c.phone}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Assigned Center</span>
-                      <span className="text-slate-300 font-medium">{c.branch}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Security Risk Profiling</span>
-                      <span className={`font-bold ${
-                        c.riskScore > 75 ? 'text-rose-500' : c.riskScore > 40 ? 'text-amber-500' : 'text-emerald-500'
-                      }`}>
-                        {c.riskScore}/100 Risk Rating
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Customer Bank Accounts List */}
-                  <div>
-                    <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Connected Bank Accounts</h5>
-                    <div className="space-y-1.5">
-                      {c.accounts.map((acc) => (
-                        <div key={acc.accountNumber} className="flex justify-between items-center text-xs p-2 bg-slate-900/30 rounded border border-slate-800/30">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-slate-400">{acc.accountNumber}</span>
-                            <span className="text-[10px] px-1.5 py-0.2 bg-slate-800 rounded text-slate-300 font-mono uppercase">{acc.type}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="font-mono font-bold text-slate-200">{formatUSD(acc.balance)}</span>
-                            <span className={`h-1.5 w-1.5 rounded-full ${acc.status === 'ACTIVE' ? 'bg-emerald-400' : 'bg-rose-400'}`} title={acc.status}></span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {customers.length === 0 && (
-                <div className="col-span-2 text-center py-12 text-slate-500 bg-slate-950 border border-slate-800 rounded-xl">No customer records matching criteria.</div>
-              )}
-            </div>
+        {/* 2.5. ACCOUNTS REGISTRY SUB-VIEW */}
+        {activeTab === 'accounts' && (
+          <div className="space-y-6 animate-fade-in">
+            <AccountsManager
+              token={token}
+              user={user}
+              accounts={accounts}
+              customers={customers}
+              isLoading={isLoading}
+              onRefresh={fetchData}
+            />
           </div>
         )}
 
         {/* 3. TRANSACTION ANALYTICS SUB-VIEW */}
         {activeTab === 'transactions' && (
           <div className="space-y-6 animate-fade-in">
-            {/* Filters Bar */}
-            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex flex-wrap gap-4 items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 font-semibold uppercase">Tx Type:</span>
-                <select
-                  value={txType}
-                  onChange={(e) => setTxType(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 text-slate-100 px-3 py-1.5 rounded-lg text-xs focus:outline-none"
-                >
-                  <option value="ALL">All Transactions</option>
-                  <option value="DEPOSIT">Deposits Only</option>
-                  <option value="WITHDRAWAL">Withdrawals Only</option>
-                  <option value="TRANSFER">Transfers Only</option>
-                  <option value="CREDIT_CARD">Credit Cards Only</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 font-semibold uppercase">Risk Score:</span>
-                <select
-                  value={txRisk}
-                  onChange={(e) => setTxRisk(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 text-slate-100 px-3 py-1.5 rounded-lg text-xs focus:outline-none"
-                >
-                  <option value="ALL">All Risk Factors</option>
-                  <option value="HIGH">⚠️ High Threat Score</option>
-                  <option value="MEDIUM">⚡ Medium Warning</option>
-                  <option value="LOW">🛡️ Safe Low Risk</option>
-                </select>
-              </div>
-
-              <div className="ml-auto text-xs font-mono text-slate-500 bg-slate-900/50 px-3 py-1.5 rounded border border-slate-800">
-                Injected logs in window: {transactions.length} records
-              </div>
-            </div>
-
-            {/* Transactions Ingest Table */}
-            <div className="p-5 bg-slate-950 rounded-xl border border-slate-800">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900 text-slate-400 font-mono uppercase border-b border-slate-800">
-                    <tr>
-                      <th className="p-3">Tx Hash</th>
-                      <th className="p-3">Customer Entity</th>
-                      <th className="p-3">Source Account</th>
-                      <th className="p-3">Transfer Type</th>
-                      <th className="p-3 text-right">Value (USD)</th>
-                      <th className="p-3">Logged Date</th>
-                      <th className="p-3">Compliance Score</th>
-                      <th className="p-3">Details / Merchant</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {transactions.map((t) => (
-                      <tr key={t.id} className="hover:bg-slate-900/40">
-                        <td className="p-3 font-mono font-semibold text-blue-400">{t.id}</td>
-                        <td className="p-3 font-bold text-slate-200">{t.customerName}</td>
-                        <td className="p-3 font-mono text-slate-400">{t.accountNumber}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            t.type === 'DEPOSIT' ? 'bg-emerald-500/15 text-emerald-400' :
-                            t.type === 'WITHDRAWAL' ? 'bg-rose-500/15 text-rose-400' :
-                            'bg-indigo-500/15 text-indigo-400'
-                          }`}>
-                            {t.type}
-                          </span>
-                        </td>
-                        <td className="p-3 font-mono text-right font-black text-slate-100">{formatUSD(t.amount)}</td>
-                        <td className="p-3 text-slate-500">{t.timestamp}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                            t.riskFactor === 'HIGH' ? 'bg-rose-500/25 text-rose-300' :
-                            t.riskFactor === 'MEDIUM' ? 'bg-amber-500/25 text-amber-300' :
-                            'bg-emerald-500/25 text-emerald-300'
-                          }`}>
-                            {t.riskFactor} RISK
-                          </span>
-                        </td>
-                        <td className="p-3 text-slate-400 max-w-xs truncate">{t.merchant ? `${t.merchant} (${t.location})` : 'Self Account Sync'}</td>
-                      </tr>
-                    ))}
-                    {transactions.length === 0 && (
-                      <tr>
-                        <td colSpan={8} className="p-8 text-center text-slate-500">No transactions recorded in this bracket.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <TransactionsManager
+              token={token}
+              user={user}
+              transactions={transactions}
+              accounts={accounts}
+              isLoading={isLoading}
+              onRefresh={fetchData}
+              txSearch={txSearch}
+              setTxSearch={setTxSearch}
+              txType={txType}
+              setTxType={setTxType}
+              txRisk={txRisk}
+              setTxRisk={setTxRisk}
+            />
           </div>
         )}
 
-        {/* 4. LOAN ANALYTICS SUB-VIEW */}
+        {/* 4. LOAN PORTFOLIO SUB-VIEW */}
         {activeTab === 'loans' && (
           <div className="space-y-6 animate-fade-in">
-            {/* KPI header */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="p-5 bg-slate-950 rounded-xl border border-slate-800">
-                <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">Total Loan Assets</span>
-                <div className="text-2xl font-black mt-1 text-blue-400">{formatUSD(loans.reduce((acc, l) => acc + l.amount, 0))}</div>
-              </div>
-              <div className="p-5 bg-slate-950 rounded-xl border border-slate-800">
-                <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">Outstanding Principle</span>
-                <div className="text-2xl font-black mt-1 text-slate-100">{formatUSD(loans.reduce((acc, l) => acc + l.remainingBalance, 0))}</div>
-              </div>
-              <div className="p-5 bg-slate-950 rounded-xl border border-slate-800">
-                <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">Recovered Margin</span>
-                <div className="text-2xl font-black mt-1 text-emerald-400">{formatUSD(loans.reduce((acc, l) => acc + l.recoveredAmount, 0))}</div>
-              </div>
-              <div className="p-5 bg-slate-950 rounded-xl border border-slate-800">
-                <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">Delinquency Count</span>
-                <div className="text-2xl font-black mt-1 text-rose-500">{loans.filter(l => l.status === 'DELINQUENT').length} Cases</div>
-              </div>
-            </div>
-
-            {/* Loans Table */}
-            <div className="p-5 bg-slate-950 rounded-xl border border-slate-800">
-              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider mb-4">Loan Ledger & Compliance</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900 text-slate-400 font-mono uppercase border-b border-slate-800">
-                    <tr>
-                      <th className="p-3">Reference ID</th>
-                      <th className="p-3">Borrowing entity</th>
-                      <th className="p-3">Asset category</th>
-                      <th className="p-3">Granted Amount</th>
-                      <th className="p-3">APR Rate</th>
-                      <th className="p-3 font-mono">Monthly EMI</th>
-                      <th className="p-3">Outstanding Bal</th>
-                      <th className="p-3">FICO Tier</th>
-                      <th className="p-3 text-right">Repayment status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {loans.map((l) => (
-                      <tr key={l.id} className="hover:bg-slate-900/40">
-                        <td className="p-3 font-mono font-bold text-slate-400">{l.id}</td>
-                        <td className="p-3 font-medium text-slate-200">{l.customerName}</td>
-                        <td className="p-3"><span className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded font-mono uppercase">{l.category}</span></td>
-                        <td className="p-3 font-mono font-bold text-slate-300">{formatUSD(l.amount)}</td>
-                        <td className="p-3 font-semibold text-cyan-400">{l.interestRate}%</td>
-                        <td className="p-3 font-mono text-slate-300">{formatUSD(l.emi)}</td>
-                        <td className="p-3 font-mono text-slate-300">{formatUSD(l.remainingBalance)}</td>
-                        <td className="p-3">
-                          <span className={`px-1.5 py-0.5 rounded font-black ${
-                            l.riskRating === 'A' ? 'bg-emerald-500/15 text-emerald-400' :
-                            l.riskRating === 'B' ? 'bg-blue-500/15 text-blue-400' :
-                            l.riskRating === 'C' ? 'bg-amber-500/15 text-amber-400' :
-                            'bg-rose-500/15 text-rose-400'
-                          }`}>
-                            Class {l.riskRating}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            l.status === 'FULLY_PAID' ? 'bg-emerald-500/15 text-emerald-400' :
-                            l.status === 'DELINQUENT' ? 'bg-rose-500/15 text-rose-400' :
-                            'bg-blue-500/15 text-blue-400'
-                          }`}>
-                            {l.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <LoansManager
+              token={token}
+              user={user}
+              loans={loans}
+              customers={customers}
+              isLoading={isLoading}
+              onRefresh={fetchData}
+              loanCategory={loanCategory}
+              setLoanCategory={setLoanCategory}
+              loanRating={loanRating}
+              setLoanRating={setLoanRating}
+            />
           </div>
         )}
 
         {/* 5. BRANCH PERFORMANCE SUB-VIEW */}
         {activeTab === 'branches' && (
           <div className="space-y-6 animate-fade-in">
-            <div className="grid md:grid-cols-3 gap-6">
-              {branches.map((b) => (
-                <div key={b.id} className="p-5 bg-slate-950 rounded-xl border border-slate-800 flex flex-col justify-between space-y-4 hover:border-slate-700 transition-all">
-                  <div>
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-bold text-slate-100 text-sm flex items-center gap-1.5">
-                        <MapPin className="h-4 w-4 text-blue-400" /> {b.name}
-                      </h4>
-                      <span className="text-xs font-semibold text-emerald-400">+{b.growthRate}% Growth</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-1">Location: {b.city} • Manager: {b.manager}</p>
-                  </div>
-
-                  <div className="space-y-2 p-3 bg-slate-900/40 rounded-lg border border-slate-800/40 text-xs">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-500">Customer Count</span>
-                      <span className="text-slate-300 font-bold font-mono">{b.customerCount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-500">Active Credit Accounts</span>
-                      <span className="text-slate-300 font-bold font-mono">{b.activeLoans}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-500">Ingested deposits</span>
-                      <span className="text-emerald-400 font-bold font-mono">{formatUSD(b.totalDeposits)}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-500">Annual Revenue Generation</span>
-                      <span className="text-slate-200 font-bold font-mono">{formatUSD(b.totalRevenue)}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-500">Total Transaction logs</span>
-                      <span className="text-slate-400 font-mono">{b.transactionCount.toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <BranchesManager
+              token={token}
+              user={user}
+              branches={branches}
+              isLoading={isLoading}
+              onRefresh={fetchData}
+            />
           </div>
         )}
 
@@ -649,54 +418,15 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
               </div>
             </div>
 
-            {/* Alerts Table */}
-            <div className="p-5 bg-slate-950 rounded-xl border border-slate-800">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900 text-slate-400 font-mono uppercase border-b border-slate-800">
-                    <tr>
-                      <th className="p-3">Incident ID</th>
-                      <th className="p-3">Reference Tx</th>
-                      <th className="p-3">Target Customer</th>
-                      <th className="p-3 text-right">Value (USD)</th>
-                      <th className="p-3">Threat Category</th>
-                      <th className="p-3">Logged Date</th>
-                      <th className="p-3">Threat Risk Level</th>
-                      <th className="p-3">Audit Details</th>
-                      <th className="p-3 text-right">Action Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {fraudAlerts.map((f) => (
-                      <tr key={f.id} className="hover:bg-slate-900/40 align-top">
-                        <td className="p-3 font-mono font-bold text-rose-400">{f.id}</td>
-                        <td className="p-3 font-mono text-slate-400">{f.transactionId}</td>
-                        <td className="p-3 font-bold text-slate-200">{f.customerName}</td>
-                        <td className="p-3 font-mono text-right font-black text-slate-100">{formatUSD(f.amount)}</td>
-                        <td className="p-3"><span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 rounded-full border border-rose-500/20 text-[10px] font-bold uppercase">{f.type}</span></td>
-                        <td className="p-3 text-slate-500">{f.timestamp}</td>
-                        <td className="p-3">
-                          <div className="w-full bg-slate-800 rounded-full h-1.5 mt-1.5" title={`${f.riskScore}% risk`}>
-                            <div className="bg-rose-500 h-1.5 rounded-full" style={{ width: `${f.riskScore}%` }}></div>
-                          </div>
-                          <span className="text-[9px] font-bold text-rose-400 mt-0.5 block font-mono">{f.riskScore}% Threat</span>
-                        </td>
-                        <td className="p-3 text-slate-400 text-[11px] max-w-xs whitespace-normal leading-relaxed">{f.details}</td>
-                        <td className="p-3 text-right">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            f.status === 'OPEN' ? 'bg-rose-500/15 text-rose-400' :
-                            f.status === 'INVESTIGATING' ? 'bg-amber-500/15 text-amber-400' :
-                            'bg-emerald-500/15 text-emerald-400'
-                          }`}>
-                            {f.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <FraudAlertsManager
+              token={token}
+              user={user}
+              fraudAlerts={fraudAlerts}
+              customers={customers}
+              transactions={transactions}
+              isLoading={isLoading}
+              onRefresh={fetchData}
+            />
           </div>
         )}
 

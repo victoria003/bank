@@ -1,4 +1,4 @@
-export type PagesUserRole = 'ADMIN' | 'DATA_ENGINEER' | 'ANALYST' | 'BUSINESS_USER';
+export type PagesUserRole = 'BANKING_ADMIN' | 'BANKING_DATA_ENGINEER' | 'BANKING_ANALYST' | 'BANKING_BUSINESS_USER';
 
 export interface PagesUser {
   username: string;
@@ -13,28 +13,28 @@ const USERS_DB: Record<string, PagesUser & { password: string }> = {
     password: 'admin123',
     name: 'Administrator',
     email: 'admin@example.com',
-    role: 'ADMIN'
+    role: 'BANKING_ADMIN'
   },
   engineer: {
     username: 'engineer',
     password: 'engineer123',
     name: 'Data Engineer',
     email: 'engineer@example.com',
-    role: 'DATA_ENGINEER'
+    role: 'BANKING_DATA_ENGINEER'
   },
   analyst: {
     username: 'analyst',
     password: 'analyst123',
     name: 'Risk Analyst',
     email: 'analyst@example.com',
-    role: 'ANALYST'
+    role: 'BANKING_ANALYST'
   },
   business: {
     username: 'business',
     password: 'business123',
     name: 'Business User',
     email: 'business@example.com',
-    role: 'BUSINESS_USER'
+    role: 'BANKING_BUSINESS_USER'
   }
 };
 
@@ -136,4 +136,34 @@ export function buildJsonResponse(body: unknown, init?: ResponseInit) {
     headers: { 'content-type': 'application/json;charset=UTF-8' },
     ...init
   });
+}
+
+export function verifyPermission(user: any, action: 'read' | 'create' | 'update' | 'delete', resource: string): boolean {
+  if (!user) return false;
+  const role = user.role;
+
+  // BANKING_ADMIN has full access
+  if (role === 'BANKING_ADMIN' || role === 'ADMIN') {
+    return true;
+  }
+
+  // BANKING_DATA_ENGINEER
+  if (role === 'BANKING_DATA_ENGINEER' || role === 'DATA_ENGINEER') {
+    if (resource === 'security') return false;
+    if (action === 'delete') return false;
+    return true;
+  }
+
+  // BANKING_ANALYST
+  if (role === 'BANKING_ANALYST' || role === 'ANALYST') {
+    if (resource === 'sql' && action === 'read') return true;
+    return action === 'read' && resource !== 'security' && resource !== 'monitoring' && resource !== 'upload' && resource !== 'recovery';
+  }
+
+  // BANKING_BUSINESS_USER
+  if (role === 'BANKING_BUSINESS_USER' || role === 'BUSINESS_USER') {
+    return resource === 'dashboard' && action === 'read';
+  }
+
+  return false;
 }
