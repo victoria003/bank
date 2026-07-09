@@ -128,24 +128,27 @@ export default function LoansManager({
 
   // Perform edit setup
   const openEdit = (loan: any) => {
-    // Look up customerId from existing customer name or match if possible
-    const matchedCust = customers.find(c => c.name === loan.customerName);
     setSelectedLoan(loan);
     setForm({
-      customerId: matchedCust ? matchedCust.id : '',
+      // loan.customerId is now returned directly by the GET /api/business/loans endpoint
+      customerId: loan.customerId || (customers.find((c: any) => c.name === loan.customerName)?.id) || '',
       category: loan.category || 'PERSONAL',
       amount: loan.amount || 0,
       interestRate: loan.interestRate || 0,
       termMonths: loan.termMonths || 0,
       emi: loan.emi || 0,
       remainingBalance: loan.remainingBalance || 0,
-      nextDueDate: loan.nextDueDate || '',
+      // Always provide a valid YYYY-MM-DD date — fallback to 30 days from now
+      nextDueDate: (loan.nextDueDate && loan.nextDueDate !== 'null')
+        ? loan.nextDueDate
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       status: loan.status || 'ACTIVE',
       riskRating: loan.riskRating || 'A',
       recoveredAmount: loan.recoveredAmount || 0
     });
     setShowEditModal(true);
   };
+
 
   // Perform update
   const handleUpdate = async (e: React.FormEvent) => {

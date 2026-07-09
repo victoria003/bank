@@ -33,6 +33,7 @@ export default function BusinessPortal({ user, token }: BusinessPortalProps) {
   // Filters
   const [custSearch, setCustSearch] = useState('');
   const [custSegment, setCustSegment] = useState('ALL');
+  const [txSearch, setTxSearch] = useState('');
   const [txType, setTxType] = useState('ALL');
   const [txRisk, setTxRisk] = useState('ALL');
   const [loanCategory, setLoanCategory] = useState('ALL');

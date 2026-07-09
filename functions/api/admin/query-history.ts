@@ -1,4 +1,4 @@
-import { buildJsonResponse, verifyToken } from '../_auth';
+import { buildJsonResponse, verifyToken, verifyPermission } from '../_auth';
 import { executeSnowflakeSql } from '../_snowflake';
 
 export async function onRequestGet(context: any) {
@@ -6,6 +6,10 @@ export async function onRequestGet(context: any) {
   const user = await verifyToken(authHeader, context);
   if (!user) {
     return buildJsonResponse({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!verifyPermission(user, 'read', 'query-history')) {
+    return buildJsonResponse({ success: false, error: 'Access Denied: Forbidden' }, { status: 403 });
   }
 
   try {

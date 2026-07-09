@@ -21,6 +21,7 @@ export async function onRequestGet(context: any) {
     let query = `
       SELECT
         l.loan_id AS id,
+        l.customer_id,
         COALESCE(c.name, 'Unknown') AS customer_name,
         l.category,
         l.amount,
@@ -105,6 +106,7 @@ export async function onRequestPost(context: any) {
     const result = await executeSnowflakeSql(context, `
       SELECT
         l.loan_id AS id,
+        l.customer_id,
         COALESCE(c.name, 'Unknown') AS customer_name,
         l.category,
         l.amount,
